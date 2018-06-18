@@ -1,8 +1,9 @@
 # Project information
-site_name: FreeType-.. API Reference
+site_name: FreeType-2.9.1 API Reference
 site_author: FreeType Contributors
 docs_dir: markdown
 site_dir: site
+site_description: API Reference Documentation for FreeType-2.9.1
 
 # Configuration
 theme:
