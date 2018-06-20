@@ -294,8 +294,9 @@ library: $(PROJECT_LIBRARY)
 #
 refdoc:
 	@echo Installing requirements...
-	pip install -r $(SRC_DIR)/tools/docwriter/requirements.txt
-	@echo Running docwriter...
+	python -m pip install --user -r \
+                        $(SRC_DIR)/tools/docwriter/requirements.txt
+	@echo "Running docwriter..."
 	python -B $(SRC_DIR)/tools/docwriter/docwriter.py \
                   --prefix=ft2                          \
                   --title=FreeType-$(version)           \
@@ -305,7 +306,6 @@ refdoc:
                   $(PUBLIC_DIR)/cache/*.h
 	@echo Building static site...
 	cd $(DOC_DIR) && mkdocs build
-	@echo.
 	@echo Done.
 
 .PHONY: clean_project_std distclean_project_std
