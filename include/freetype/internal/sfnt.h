@@ -514,6 +514,9 @@ FT_BEGIN_HEADER
    *     same object again.
    *
    * @output:
+   *   aglyph_index ::
+   *     The glyph index of the current layer.
+   *
    *   acolor_index ::
    *     The color index into the font face's color palette of the current
    *     layer.  The value 0xFFFF is special; it doesn't reference a palette
@@ -521,13 +524,14 @@ FT_BEGIN_HEADER
    *     instead (to be set up by the application outside of FreeType).
    *
    * @return:
-   *   The glyph index of the current layer.  If there are no more layers
-   *   (or if there are no layers at all), value~0 gets returned.  In case
-   *   of an error, value~0 is returned also.
+   *   Value~1 if everything is OK.  If there are no more layers (or if
+   *   there are no layers at all), value~0 gets returned.  In case of an
+   *   error, value~0 is returned also.
    */
-  typedef FT_UInt
+  typedef FT_Bool
   (*TT_Get_Colr_Layer_Func)( TT_Face            face,
                              FT_UInt            base_glyph,
+                             FT_UInt           *aglyph_index,
                              FT_UInt           *acolor_index,
                              FT_LayerIterator*  iterator );
 
@@ -541,10 +545,9 @@ FT_BEGIN_HEADER
    *   Blend the bitmap in `new_glyph` into `base_glyph` using the color
    *   specified by `color_index`.  If `color_index` is 0xFFFF, use
    *   `face->foreground_color` if `face->have_foreground_color` is set.
-   *   Otherwise check `face->palette_data.palette_type`: If present and
-   *   @FT_PALETTE_USABLE_WITH_DARK_BACKGROUND is set, use BGRA value
-   *   0xFFFFFFFF (white opaque).  Otherwise use BGRA value 0x000000FF
-   *   (black opaque).
+   *   Otherwise check `face->palette_data.palette_flags`: If present and
+   *   @FT_PALETTE_FOR_DARK_BACKGROUND is set, use BGRA value 0xFFFFFFFF
+   *   (white opaque).  Otherwise use BGRA value 0x000000FF (black opaque).
    *
    * @input:
    *   face ::

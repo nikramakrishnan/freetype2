@@ -256,7 +256,7 @@ FT_BEGIN_HEADER
    *   (without rounding) with maximum accuracy (it uses a 64-bit
    *   intermediate integer whenever necessary).
    *
-   *   This function isn't necessarily as fast as some processor specific
+   *   This function isn't necessarily as fast as some processor-specific
    *   operations, but is at least completely portable.
    *
    * @input:
@@ -290,6 +290,21 @@ FT_BEGIN_HEADER
   FT_Matrix_Multiply_Scaled( const FT_Matrix*  a,
                              FT_Matrix        *b,
                              FT_Long           scaling );
+
+
+  /*
+   * Check a matrix.  If the transformation would lead to extreme shear or
+   * extreme scaling, for example, return 0.  If everything is OK, return 1.
+   *
+   * Based on geometric considerations we use the following inequality to
+   * identify a degenerate matrix.
+   *
+   *   50 * abs(xx*yy - xy*yx) < xx^2 + xy^2 + yx^2 + yy^2
+   *
+   * Value 50 is heuristic.
+   */
+  FT_BASE( FT_Bool )
+  FT_Matrix_Check( const FT_Matrix*  matrix );
 
 
   /*

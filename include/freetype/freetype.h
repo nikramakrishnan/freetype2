@@ -843,9 +843,8 @@ FT_BEGIN_HEADER
    *     other formats.
    *
    *   encoding_id ::
-   *     A platform specific encoding number.  This also
-   *     comes from the TrueType specification and gets
-   *     emulated similarly.
+   *     A platform-specific encoding number.  This also comes from the
+   *     TrueType specification and gets emulated similarly.
    */
   typedef struct  FT_CharMapRec_
   {
@@ -952,17 +951,13 @@ FT_BEGIN_HEADER
    *     used in the font.
    *
    *   family_name ::
-   *     The face's family name.  This is an ASCII
-   *     string, usually in English, that describes
-   *     the typeface's family (like 'Times New
-   *     Roman', 'Bodoni', 'Garamond', etc).  This
-   *     is a least common denominator used to list
-   *     fonts.  Some formats (TrueType & OpenType)
-   *     provide localized and Unicode versions of
-   *     this string.  Applications should use the
-   *     format specific interface to access them.
-   *     Can be NULL (e.g., in fonts embedded in a
-   *     PDF file).
+   *     The face's family name.  This is an ASCII string, usually in
+   *     English, that describes the typeface's family (like 'Times New
+   *     Roman', 'Bodoni', 'Garamond', etc).  This is a least common
+   *     denominator used to list fonts.  Some formats (TrueType & OpenType)
+   *     provide localized and Unicode versions of this string.
+   *     Applications should use the format-specific interface to access
+   *     them.  Can be NULL (e.g., in fonts embedded in a PDF file).
    *
    *     In case the font doesn't provide a specific
    *     family name entry, FreeType tries to
@@ -970,16 +965,13 @@ FT_BEGIN_HEADER
    *     entries.
    *
    *   style_name ::
-   *     The face's style name.  This is an ASCII
-   *     string, usually in English, that describes
-   *     the typeface's style (like 'Italic',
-   *     'Bold', 'Condensed', etc).  Not all font
-   *     formats provide a style name, so this field
-   *     is optional, and can be set to NULL.  As
-   *     for `family_name`, some formats provide
-   *     localized and Unicode versions of this
-   *     string.  Applications should use the format
-   *     specific interface to access them.
+   *     The face's style name.  This is an ASCII string, usually in
+   *     English, that describes the typeface's style (like 'Italic',
+   *     'Bold', 'Condensed', etc).  Not all font formats provide a style
+   *     name, so this field is optional, and can be set to NULL.  As for
+   *     `family_name`, some formats provide localized and Unicode versions
+   *     of this string.  Applications should use the format-specific
+   *     interface to access them.
    *
    *   num_fixed_sizes ::
    *     The number of bitmap strikes in the face.
@@ -4255,6 +4247,9 @@ FT_BEGIN_HEADER
    *     same object again.
    *
    * @output:
+   *   aglyph_index ::
+   *     The glyph index of the current layer.
+   *
    *   acolor_index ::
    *     The color index into the font face's color palette of the current
    *     layer.  The value 0xFFFF is special; it doesn't reference a palette
@@ -4264,9 +4259,9 @@ FT_BEGIN_HEADER
    *     The color palette can be retrieved with @FT_Palette_Select.
    *
    * @return:
-   *     The glyph index of the current layer.  If there are no more layers
-   *     (or if there are no layers at all), value~0 gets returned.  In case
-   *     of an error, value~0 is returned also.
+   *   Value~1 if everything is OK.  If there are no more layers (or if
+   *   there are no layers at all), value~0 gets returned.  In case of an
+   *   error, value~0 is returned also.
    *
    * @note:
    *   This function is necessary if you want to handle glyph layers by
@@ -4282,6 +4277,7 @@ FT_BEGIN_HEADER
    *     FT_Color*         palette;
    *     FT_LayerIterator  iterator;
    *
+   *     FT_Bool  have_layers;
    *     FT_UInt  layer_glyph_index;
    *     FT_UInt  layer_color_index;
    *
@@ -4290,33 +4286,41 @@ FT_BEGIN_HEADER
    *     if ( error )
    *       palette = NULL;
    *
-   *     iterator.p        = NULL;
-   *     layer_glyph_index = FT_Get_Color_Glyph_Layer( face,
-   *                                                   glyph_index,
-   *                                                   &layer_color_index,
-   *                                                   &iterator );
+   *     iterator.p  = NULL;
+   *     have_layers = FT_Get_Color_Glyph_Layer( face,
+   *                                             glyph_index,
+   *                                             &layer_glyph_index,
+   *                                             &layer_color_index,
+   *                                             &iterator );
    *
-   *     if ( palette && layer_glyph_index )
+   *     if ( palette && have_layers )
    *     {
    *       do
    *       {
-   *         FT_Color  layer_color = palette[layer_color_index];
+   *         FT_Color  layer_color;
    *
+   *
+   *         if ( layer_color_index == 0xFFFF )
+   *           layer_color = text_foreground_color;
+   *         else
+   *           layer_color = palette[layer_color_index];
    *
    *         // Load and render glyph `layer_glyph_index', then
-   *         // blend resulting pixmap with previously created pixmaps.
+   *         // blend resulting pixmap (using color `layer_color')
+   *         // with previously created pixmaps.
    *
-   *       } while ( ( layer_glyph_index =
-   *                     FT_Get_Color_Glyph_Layer( face,
-   *                                               glyph_index,
-   *                                               &layer_color_index,
-   *                                               &iterator ) ) != 0 );
+   *       } while ( FT_Get_Color_Glyph_Layer( face,
+   *                                           glyph_index,
+   *                                           &layer_glyph_index,
+   *                                           &layer_color_index,
+   *                                           &iterator ) );
    *     }
    *   ```
    */
-  FT_EXPORT( FT_UInt )
+  FT_EXPORT( FT_Bool )
   FT_Get_Color_Glyph_Layer( FT_Face            face,
                             FT_UInt            base_glyph,
+                            FT_UInt           *aglyph_index,
                             FT_UInt           *acolor_index,
                             FT_LayerIterator*  iterator );
 
@@ -4687,7 +4691,7 @@ FT_BEGIN_HEADER
    *   Compute '(a*b)/c' with maximum accuracy, using a 64-bit
    *   intermediate integer whenever necessary.
    *
-   *   This function isn't necessarily as fast as some processor specific
+   *   This function isn't necessarily as fast as some processor-specific
    *   operations, but is at least completely portable.
    *
    * @input:
