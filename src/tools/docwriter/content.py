@@ -129,12 +129,27 @@ class  DocCode:
 ##
 class  DocPara:
 
-    def  __init__( self, lines ):
-        self.lines = None
-        self.words = []
-        for l in lines:
-            l = l.strip( )
-            self.words.extend( l.split( ) )
+    def  __init__( self, lines, margin = -1 ):
+        self.lines  = None
+        self.words  = []
+        self.indent = len( lines[0] ) - len( lines[0].lstrip() )
+        first_line  = lines[0].strip()
+        indent_diff = self.indent - margin
+
+        if margin > 0 and indent_diff >= 4:
+            # if the first line has an indentation >= 4,
+            # add those spaces to it.
+            indent_list = [''] * indent_diff
+            self.words.extend( indent_list )
+            # This para is indented, the next may also be relative
+            # to the parent, so set indent to margin
+            self.indent = margin
+
+        self.words.extend( first_line.split() )
+
+        for l in lines[1:]:
+            l = l.strip()
+            self.words.extend( l.split() )
 
     def  dump( self, prefix = "", width = 60 ):
         lines = self.dump_lines( 0, width )
@@ -187,6 +202,7 @@ class  DocField:
 
         margin     = -1    # current code sequence indentation
         cur_lines  = []
+        indent     = -1
         lang       = None
 
         # analyze the markup lines to check whether they contain paragraphs,
@@ -224,11 +240,13 @@ class  DocField:
                     lang   = m.group( 2 )
                     mode   = mode_code
                 else:
-                    if not l.split( ) and cur_lines:
+                    if not l.split() and cur_lines:
                         # if the line is empty, we end the current paragraph,
                         # if any
-                        para = DocPara( cur_lines )
+                        para = DocPara( cur_lines, indent )
                         self.items.append( para )
+                        # store indent value of current para
+                        indent = para.indent
                         cur_lines = []
                     else:
                         # otherwise, simply add the line to the current
@@ -240,7 +258,7 @@ class  DocField:
             code = DocCode( margin, cur_lines, lang )
             self.items.append( code )
         elif cur_lines:
-            para = DocPara( cur_lines )
+            para = DocPara( cur_lines, indent )
             self.items.append( para )
 
     def  dump( self, prefix = "" ):
@@ -291,7 +309,7 @@ re_field = re.compile( r"""
 class  DocMarkup:
 
     def  __init__( self, tag, lines ):
-        self.tag    = tag.lower( )
+        self.tag    = tag.lower()
         self.fields = []
 
         cur_lines = []
@@ -349,7 +367,7 @@ class  DocChapter:
             self.order = block.get_markup_words( "sections" )
         else:
             self.name  = "Other"
-            self.title = "Miscellaneous".split( )
+            self.title = "Miscellaneous".split()
             self.order = []
 
 
@@ -434,7 +452,7 @@ class  ContentProcessor:
 
             # get rid of last line of markup if it's empty
             marks = self.markup_lines
-            if len( marks ) > 0 and not marks[-1].strip( ):
+            if len( marks ) > 0 and not marks[-1].strip():
                 self.markup_lines = marks[:-1]
 
             m = DocMarkup( self.markup, self.markup_lines )
@@ -472,7 +490,7 @@ class  ContentProcessor:
                 for t in re_markup_tags:
                     m = t.match( line )
                     if m:
-                        found  = m.group( 1 ).lower( )
+                        found  = m.group( 1 ).lower()
                         prefix = len( m.group( 0 ) )
                         # remove markup from line
                         line   = " " * prefix + line[prefix:]
@@ -483,7 +501,7 @@ class  ContentProcessor:
                 first = 0
                 self.add_markup()  # add current markup content
                 self.markup = found
-                if len( line.strip( ) ) > 0:
+                if len( line.strip() ) > 0:
                     self.markup_lines.append( line )
             elif first == 0:
                 self.markup_lines.append( line )
@@ -616,13 +634,13 @@ class  DocBlock:
         start = 0
         end   = len( source ) - 1
 
-        while start < end and not source[start].strip( ):
+        while start < end and not source[start].strip():
             start = start + 1
 
-        while start < end and not source[end].strip( ):
+        while start < end and not source[end].strip():
             end = end - 1
 
-        if start == end and not source[start].strip( ):
+        if start == end and not source[start].strip():
             self.code = []
         else:
             self.code = source[start:end + 1]
@@ -633,7 +651,7 @@ class  DocBlock:
     def  get_markup( self, tag_name ):
         """Return the DocMarkup corresponding to a given tag in a block."""
         for m in self.markups:
-            if m.tag == tag_name.lower( ):
+            if m.tag == tag_name.lower():
                 return m
         return None
 

@@ -24,8 +24,8 @@ import time, sys
 try:
     import mistune
 except ImportError:
-    sys.stderr.write("Error: Could not find module 'mistune'. Please run"
-                     + "'pip install -r requirements.txt' to install.")
+    sys.stderr.write( "Error: Could not find module 'mistune'. Please run"
+                      + "'pip install -r requirements.txt' to install." )
 
 #---------------------------------------------------------------
 # Begin initial configuration
@@ -210,9 +210,9 @@ class  MdFormatter( Formatter ):
     def make_chapter_url( self, chapter ):
         chapter = ' '.join( chapter )
         slug_chapter = self.sluggify( chapter )
-        chapter_url = ("[" + chapter + "]("
-        + self.toc_filename + "#" + slug_chapter + ")"
-        )
+        chapter_url = ( "[" + chapter + "]("
+                        + self.toc_filename + "#" + slug_chapter + ")"
+                      )
         return chapter_url
 
     def  make_md_word( self, word ):
@@ -267,8 +267,8 @@ class  MdFormatter( Formatter ):
 
         # Return
         if in_html:
-            # If we are in an HTML tag, return without newline
-            return line
+            # If we are in an HTML tag, return with newline after para
+            return line + md_newline
         # Otherwise return a Markdown paragraph
         return md_newline + line
 
@@ -299,7 +299,7 @@ class  MdFormatter( Formatter ):
         if in_html:
             # Parse markdown in content
             content = self.markdown( content ).rstrip()
-        print(content)
+        print( content )
 
     def print_md_para( self, words, in_html = False ):
         content = self.make_md_para( words, in_html )
@@ -372,9 +372,16 @@ class  MdFormatter( Formatter ):
         return result
 
     def  print_md_field_list( self, fields ):
-        print( '<table class="fields">' )
+        is_long = False
         for field in fields:
-            print( '<tr><td class="val" id="' + self.sluggify(field.name) + '">'
+            if len( field.name ) > 30:
+                is_long = True
+        if is_long:
+            print( '<table class="fields long">' )
+        else:
+            print( '<table class="fields">' )
+        for field in fields:
+            print( '<tr><td class="val" id="' + self.sluggify( field.name ) + '">'
                    + field.name
                    + '</td><td class="desc">' )
             self.print_md_items( field.items, in_html = True )
@@ -509,7 +516,7 @@ class  MdFormatter( Formatter ):
                +  md_crumbs_separator + section.title
                + md_line_sep )
         else:
-            sys.stderr.write("WARNING: No chapter name for Section '" + section.title + "'\n")
+            sys.stderr.write( "WARNING: No chapter name for Section '" + section.title + "'\n" )
 
         # Print section title
         print( md_h1 + section.title )
@@ -537,7 +544,7 @@ class  MdFormatter( Formatter ):
         if block.code:
             header = ''
             for f in self.headers.keys():
-                header_filename = os.path.normpath(block.source.filename)
+                header_filename = os.path.normpath( block.source.filename )
                 if header_filename.find( os.path.normpath( f ) ) >= 0:
                     header = self.headers[f] + ' (' + f + ')'
                     break
