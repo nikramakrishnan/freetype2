@@ -14,18 +14,24 @@
 
 # The parent class is contained in file `formatter.py'.
 
+"""Subclass of `formatter` to generate Markdown.
 
-from sources import *
-from content import *
-from formatter import *
+This module subclasses `formatter` and implements syntax-specific
+routines to build markdown output.
+"""
+
+import logging
+import os
+import re
+import time
+
+import mistune
+
+from formatter import Formatter
 import siteconfig
+import sources
 
-import time, sys
-try:
-    import mistune
-except ImportError:
-    sys.stderr.write( "Error: Could not find module 'mistune'. Please run"
-                      + "'pip install -r requirements.txt' to install." )
+log = logging.getLogger( __name__ )
 
 #---------------------------------------------------------------
 # Begin initial configuration
@@ -106,12 +112,10 @@ md_hr = """\
 #---------------------------------------------------------------
 
 def  html_quote( line ):
-    '''Change HTML special characters to their codes
+    """Change HTML special characters to their codes.
 
-    Follows ISO 8859-1  
-    Characters changed:
-    `&`, `<` and `>`.
-    '''
+    Follows ISO 8859-1 Characters changed: `&`, `<` and `>`.
+    """
     result = line
     if "`" not in result:
         result = line.replace( "&", "&amp;" )
@@ -177,12 +181,12 @@ class  MdFormatter( Formatter ):
         url = url.replace( "]", ")" )
         return url
 
-    def sluggify( self, name ):
-        '''Sluggify a cross-reference
-        
-        Python markdown uses a similar approach to process links
-        so we need to do this in order to have valid cross-references
-        '''
+    def slugify( self, name ):
+        """Slugify a cross-reference.
+
+        Python markdown uses a similar approach to process links so we
+        need to do this in order to have valid cross-references.
+        """
         name = name.lower().strip()
         name = name.replace( " ",  "-")
         return name
@@ -196,12 +200,12 @@ class  MdFormatter( Formatter ):
         if name == None:
             name = block.name
 
-        name = self.sluggify( name )
+        name = self.slugify( name )
 
         try:
             # if it is a field def, link to its parent section
             section_url = self.make_section_url( block.section, code )
-        except:
+        except Exception:
             # we already have a section
             section_url = self.make_section_url( block, code )
 
@@ -209,7 +213,7 @@ class  MdFormatter( Formatter ):
 
     def make_chapter_url( self, chapter ):
         chapter = ' '.join( chapter )
-        slug_chapter = self.sluggify( chapter )
+        slug_chapter = self.slugify( chapter )
         chapter_url = ( "[" + chapter + "]("
                         + self.toc_filename + "#" + slug_chapter + ")"
                       )
@@ -218,7 +222,7 @@ class  MdFormatter( Formatter ):
     def  make_md_word( self, word ):
         """Analyze a simple word to detect cross-references and markup."""
         # handle cross-references
-        m = re_crossref.match( word )
+        m = sources.re_crossref.match( word )
         if m:
             try:
                 name = m.group( 'name' )
@@ -234,30 +238,31 @@ class  MdFormatter( Formatter ):
                     url = ( '&lsquo;<a href="' + url + '">'
                             + block.title + '</a>&rsquo;'
                             + rest )
-                except:
+                except Exception:
                     url = ( '<a href="' + url + '">'
                             + name + '</a>'
                             + rest )
 
                 return url
-            except:
+            except Exception:
                 # we detected a cross-reference to an unknown item
-                sys.stderr.write( "WARNING: undefined cross reference"
-                                  + " '" + name + "'.\n" )
+                log.warn( "Undefined cross reference '%s'.", name )
                 return '?' + name + '?' + rest
 
         return html_quote( word )
 
     def  make_md_para( self, words, in_html = False ):
-        """Convert words of a paragraph into tagged Markdown text.  Also handle
-           cross references."""
+        """Convert words of a paragraph into tagged Markdown text.
+
+        Also handle cross references.
+        """
         line = ""
         if words:
             line = self.make_md_word( words[0] )
             for word in words[1:]:
                 line = line + " " + self.make_md_word( word )
             # handle hyperlinks
-            line = re_url.sub( r'<\1>', line )
+            line = sources.re_url.sub( r'<\1>', line )
             # convert '...' quotations into real left and right single quotes
             line = re.sub( r"(^|\W)'(.*?)'(\W|$)",
                            r'\1&lsquo;\2&rsquo;\3',
@@ -322,7 +327,7 @@ class  MdFormatter( Formatter ):
     def  source_quote( self, line, block_name = None ):
         result = ""
         while line:
-            m = re_source_crossref.match( line )
+            m = sources.re_source_crossref.match( line )
             if m:
                 name   = m.group( 2 )
                 prefix = html_quote( m.group( 1 ) )
@@ -334,7 +339,7 @@ class  MdFormatter( Formatter ):
                     # result = result + prefix + name
                 
                 # Keyword highlighting
-                elif re_source_keywords.match( name ):
+                elif sources.re_source_keywords.match( name ):
                     # this is a C keyword
                     result = ( result + prefix
                                + keyword_prefix + name + keyword_suffix )
@@ -342,24 +347,24 @@ class  MdFormatter( Formatter ):
                 elif name in self.identifiers:
                     # this is a known identifier
                     block = self.identifiers[name]
-                    id = block.name
+                    iden  = block.name
 
                     # link to a field ID if possible
                     try:
-                      for markup in block.markups:
-                          if markup.tag == 'values':
-                              for field in markup.fields:
-                                  if field.name:
-                                      id = name
+                        for markup in block.markups:
+                            if markup.tag == 'values':
+                                for field in markup.fields:
+                                    if field.name:
+                                        iden = name
 
-                      result = ( result + prefix
-                                 + '<a href="'
-                                 + self.make_block_url( block, id, code = True )
-                                 + '">' + name + '</a>' )
-                    except:
-                      # sections don't have `markups'; however, we don't
-                      # want references to sections here anyway
-                      result = result + html_quote( line[:length] )
+                        result = ( result + prefix
+                                    + '<a href="'
+                                    + self.make_block_url( block, iden, code = True )
+                                    + '">' + name + '</a>' )
+                    except Exception:
+                        # sections don't have `markups'; however, we don't
+                        # want references to sections here anyway
+                        result = result + html_quote( line[:length] )
 
                 else:
                     result = result + html_quote( line[:length] )
@@ -374,14 +379,23 @@ class  MdFormatter( Formatter ):
     def  print_md_field_list( self, fields ):
         is_long = False
         for field in fields:
-            if len( field.name ) > 30:
+            # if any field name is longer than
+            # 25 chars change to long table
+            if len( field.name ) > 25:
                 is_long = True
+                break
+            # if any line has a code sequence
+            # change to long table
+            for item in field.items:
+                if item.lines:
+                    is_long = True
+                    break
         if is_long:
             print( '<table class="fields long">' )
         else:
             print( '<table class="fields">' )
         for field in fields:
-            print( '<tr><td class="val" id="' + self.sluggify( field.name ) + '">'
+            print( '<tr><td class="val" id="' + self.slugify( field.name ) + '">'
                    + field.name
                    + '</td><td class="desc">' )
             self.print_md_items( field.items, in_html = True )
@@ -420,31 +434,48 @@ class  MdFormatter( Formatter ):
 
     def  index_exit( self ):
         # `block_index' already contains the sorted list of index names
-        count = len( self.block_index )
-        rows  = ( count + self.columns - 1 ) // self.columns
-
-        print( '<table class="index">' )
-        for r in range( rows ):
-            line = "<tr>"
-            for c in range( self.columns ):
-                i = r + c * rows
-                if i < count:
-                    bname = self.block_index[r + c * rows]
-                    url   = self.index_items[bname]
-                    # display `foo[bar]' as `foo (bar)'
-                    bname = bname.replace( "[", " (" )
-                    bname = bname.replace( "]", ")"  )
-                    # normalize url
-                    url = self.normalize_url( url )
-                    line  = ( line + '<td><a href="' + url + '">'
-                              + bname + '</a></td>' )
-                else:
-                    line = line + '<td></td>'
-            line = line + "</tr>"
+        letter  = ''
+        for bname in self.block_index:
+            if letter != bname[0].upper():
+                # print letter heading
+                letter = bname[0].upper()
+                print( '\n' + md_h3 + letter + '\n' )
+            url   = self.index_items[bname]
+            # display `foo[bar]' as `foo (bar)'
+            bname = bname.replace( "[", " (" )
+            bname = bname.replace( "]", ")"  )
+            # normalize url
+            url   = self.normalize_url( url )
+            line  = ( '[' + bname + ']' + '(' + url + ')' + '  ' )
             print( line )
 
-        print( "</table>" )
+        # TODO Remove commented code once the above is ready
+        # count   = len( self.block_index )
+        # rows  = ( count + self.columns - 1 ) // self.columns
 
+        # print( '<table class="index">' )
+        # for r in range( rows ):
+        #     line = "<tr>"
+        #     for c in range( self.columns ):
+        #         i = r + c * rows
+        #         if i < count:
+        #             bname = self.block_index[r + c * rows]
+        #             url   = self.index_items[bname]
+        #             # display `foo[bar]' as `foo (bar)'
+        #             bname = bname.replace( "[", " (" )
+        #             bname = bname.replace( "]", ")"  )
+        #             # normalize url
+        #             url = self.normalize_url( url )
+        #             line  = ( line + '<td><a href="' + url + '">'
+        #                       + bname + '</a></td>' )
+        #         else:
+        #             line = line + '<td></td>'
+        #     line = line + "</tr>"
+        #     print( line )
+
+        # print( "</table>" )
+
+        print( md_line_sep )
         print( self.time_footer )
 
         self.index_items = {}
@@ -494,6 +525,7 @@ class  MdFormatter( Formatter ):
             )
 
     def  toc_exit( self ):
+        print( md_line_sep )
         print( self.time_footer )
         # Build and flush MkDocs config
         self.config.build_config()
@@ -512,11 +544,13 @@ class  MdFormatter( Formatter ):
     #
     def  section_enter( self, section ):
         if section.chapter:
-            print( md_header_1 +  self.make_chapter_url( section.chapter.title )
-               +  md_crumbs_separator + section.title
-               + md_line_sep )
+            print( md_header_1
+                   +  self.make_chapter_url( section.chapter.title )
+                   +  md_crumbs_separator + section.title
+                   + md_line_sep )
         else:
-            sys.stderr.write( "WARNING: No chapter name for Section '" + section.title + "'\n" )
+            # this should never happen!
+            log.warn( "No chapter name for Section '%s'.", section.title )
 
         # Print section title
         print( md_h1 + section.title )
@@ -551,9 +585,9 @@ class  MdFormatter( Formatter ):
 
             # Warn if header macro not found
             # if not header:
-            #     sys.stderr.write(
-            #     "WARNING: No header macro for"
-            #     + " '" + block.source.filename + "'.\n" )
+            #     log.warn(
+            #     "No header macro for"
+            #     " '%s'.", block.source.filename )
 
             if header:
                 print( 'Defined in ' + header + '.' )
@@ -584,6 +618,7 @@ class  MdFormatter( Formatter ):
         pass
 
     def  section_dump_all( self ):
+        log.debug( "Building markdown pages for sections." )
         for section in self.sections:
             self.section_dump( section,
                                self.file_prefix + section.name + '.md' )

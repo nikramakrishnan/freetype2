@@ -11,14 +11,19 @@
 #  license, LICENSE.TXT.  By continuing to use, modify, or distribute
 #  this file you indicate that you have read the license and
 #  understand and accept it fully.
-'''
-Module to check if all required modules are available.
+
+"""Utility to check if all required modules are available.
+
+The list of required modules can be modified in this file.
 
 Usage:
     import check
     status = check.check()
-'''
-import sys
+"""
+
+import logging
+
+log = logging.getLogger( __name__ )
 
 #
 # Required imports
@@ -28,16 +33,19 @@ import sys
 import_list = ["mistune", "yaml"]
 
 def check():
-    '''Check if all required modules are present.
-    
-    Return 0 on success, non-zero on error.'''
+    """Check if all required modules are present.
+
+    Returns 0 on success, non-zero on error.
+    """
     flag = 0
     for package in import_list:
         try:
             exec( "import " + package )
-        except:
-            sys.stderr.write( "[ERROR] Missing module: " + package )
+        except Exception:
+            log.error( "Missing module: %s", package )
             flag = True
     if flag:
         return 1
     return 0
+
+# eof

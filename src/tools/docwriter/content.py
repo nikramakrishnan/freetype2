@@ -12,33 +12,35 @@
 #  this file you indicate that you have read the license and
 #  understand and accept it fully.
 
-#
-# This file contains routines to parse documentation comment blocks,
-# building more structured objects out of them.
-#
+"""This module contains routines to parse documentation comment blocks,
+building more structured objects out of them."""
 
+from __future__ import print_function
 
-from sources import *
-from utils   import *
+import logging
+import re
 
-import string, re
+import sources
+import utils
 
+log = logging.getLogger( __name__ )
 
 #
 # Regular expressions to detect code sequences.  `Code sequences' are simply
-# code fragments embedded in '{' and '}', as demonstrated in the following
-# example.
+# code fragments embedded in '```' and '```', as demonstrated in the following
+# example. The language can optionally be specified on the first line after the
+# backticks, and is used for syntax highlighting.
 #
-#   {
+#   ```c
 #     x = y + z;
 #     if ( zookoo == 2 )
 #     {
 #       foobar();
 #     }
-#   }
+#   ```
 #
-# Note that the indentation of the first opening brace and the last closing
-# brace must be exactly the same.  The code sequence itself should have a
+# Note that the indentation of the first opening backticks and the last closing
+# backticks must be exactly the same.  The code sequence itself should have a
 # larger indentation than the surrounding braces.
 #
 re_code_start   = re.compile( r"(\s*)```([\w\+\#\-]+)?\s*$" )
@@ -93,7 +95,7 @@ re_header_macro = re.compile( r'^#define\s{1,}(\w{1,}_H)\s{1,}<(.*)>' )
 ##  The object is filled line by line by the parser; it strips the leading
 ##  `margin' space from each input line before storing it in `self.lines'.
 ##
-class  DocCode:
+class  DocCode( object ):
 
     def  __init__( self, margin, lines, lang = None ):
         self.lines = []
@@ -106,12 +108,12 @@ class  DocCode:
                 l = l[margin:]
             self.lines.append( l )
 
-    def  dump( self, prefix = "", width = 60 ):
-        lines = self.dump_lines( 0, width )
+    def  dump( self, prefix = "" ):
+        lines = self.dump_lines( 0 )
         for l in lines:
             print( prefix + l )
 
-    def  dump_lines( self, margin = 0, width = 60 ):
+    def  dump_lines( self, margin = 0 ):
         result = []
         for l in self.lines:
             result.append( " " * margin + l )
@@ -127,7 +129,7 @@ class  DocCode:
 ##
 ##  `self.words' contains the list of words that make up the paragraph.
 ##
-class  DocPara:
+class  DocPara( object ):
 
     def  __init__( self, lines, margin = -1 ):
         self.lines  = None
@@ -151,8 +153,8 @@ class  DocPara:
             l = l.strip()
             self.words.extend( l.split() )
 
-    def  dump( self, prefix = "", width = 60 ):
-        lines = self.dump_lines( 0, width )
+    def  dump( self, prefix = "" ):
+        lines = self.dump_lines( 0 )
         for l in lines:
             print( prefix + l )
 
@@ -190,7 +192,7 @@ class  DocPara:
 ##  `DocCode' objects.  Each DocField object also has an optional `name'
 ##  that is used when the object corresponds to a field or value definition.
 ##
-class  DocField:
+class  DocField( object ):
 
     def  __init__( self, name, lines ):
         self.name  = name  # can be `None' for normal paragraphs/sources
@@ -198,7 +200,6 @@ class  DocField:
 
         mode_none  = 0     # start parsing mode
         mode_code  = 1     # parsing code sequences
-        mode_para  = 3     # parsing normal paragraph
 
         margin     = -1    # current code sequence indentation
         cur_lines  = []
@@ -208,7 +209,6 @@ class  DocField:
         # analyze the markup lines to check whether they contain paragraphs,
         # code sequences, or fields definitions
         #
-        start = 0
         mode  = mode_none
 
         for l in lines:
@@ -306,7 +306,7 @@ re_field = re.compile( r"""
 ##
 ##  DOC MARKUP CLASS
 ##
-class  DocMarkup:
+class  DocMarkup( object ):
 
     def  __init__( self, tag, lines ):
         self.tag    = tag.lower()
@@ -314,7 +314,6 @@ class  DocMarkup:
 
         cur_lines = []
         field     = None
-        mode      = 0
 
         for l in lines:
             m = re_field.match( l )
@@ -342,7 +341,7 @@ class  DocMarkup:
     def  get_name( self ):
         try:
             return self.fields[0].items[0].words[0]
-        except:
+        except Exception:
             return None
 
     def  dump( self, margin ):
@@ -356,7 +355,7 @@ class  DocMarkup:
 ##
 ##  DOC CHAPTER CLASS
 ##
-class  DocChapter:
+class  DocChapter( object ):
 
     def  __init__( self, block ):
         self.block    = block
@@ -375,7 +374,7 @@ class  DocChapter:
 ##
 ##  DOC SECTION CLASS
 ##
-class  DocSection:
+class  DocSection( object ):
 
     def  __init__( self, name = "Other" ):
         self.name        = name
@@ -407,14 +406,15 @@ class  DocSection:
                 return
 
     def  reorder( self ):
-        self.block_names = sort_order_list( self.block_names, self.order )
+        self.block_names = utils.sort_order_list( self.block_names,
+                                                  self.order )
 
 
 ################################################################
 ##
 ##  CONTENT PROCESSOR CLASS
 ##
-class  ContentProcessor:
+class  ContentProcessor( object ):
 
     def  __init__( self ):
         """Initialize a block content processor."""
@@ -464,9 +464,7 @@ class  ContentProcessor:
 
     def  process_content( self, content ):
         """Process a block content and return a list of DocMarkup objects
-           corresponding to it."""
-        markup       = None
-        markup_lines = []
+        corresponding to it."""
         first        = 1
 
         margin  = -1
@@ -487,7 +485,7 @@ class  ContentProcessor:
             found = None
 
             if not in_code:
-                for t in re_markup_tags:
+                for t in sources.re_markup_tags:
                     m = t.match( line )
                     if m:
                         found  = m.group( 1 ).lower()
@@ -526,7 +524,7 @@ class  ContentProcessor:
                     follow.append( blocks[m] )
                     m = m + 1
 
-                doc_block = DocBlock( source, follow, self )
+                DocBlock( source, follow, self )
 
     def  finish( self ):
         # process all sections to extract their abstract, description
@@ -545,9 +543,9 @@ class  ContentProcessor:
                     section.reorder()
                     chap.sections.append( section )
                 else:
-                    sys.stderr.write( "WARNING: chapter '" +          \
-                        chap.name + "' in " + chap.block.location() + \
-                        " lists unknown section '" + sec + "'\n" )
+                    log.warn( "Chapter '%s' in %s"
+                        " lists unknown section '%s'",
+                        chap.name, chap.block.location(), sec )
 
         # check that all sections are in a chapter
         #
@@ -573,7 +571,7 @@ class  ContentProcessor:
 ##
 ##  DOC BLOCK CLASS
 ##
-class  DocBlock:
+class  DocBlock( object ):
 
     def  __init__( self, source, follow, processor ):
         processor.reset()
@@ -588,7 +586,7 @@ class  DocBlock:
         # compute block type from first markup tag
         try:
             self.type = self.markups[0].tag
-        except:
+        except Exception:
             pass
 
         # compute block name from first markup paragraph
@@ -600,7 +598,7 @@ class  DocBlock:
             if m:
                 name = m.group( 1 )
             self.name = name
-        except:
+        except Exception:
             pass
 
         if self.type == "section":
@@ -626,7 +624,7 @@ class  DocBlock:
                     processor.headers[m.group( 2 )] = m.group( 1 )
 
                 # we use "/* */" as a separator
-                if re_source_sep.match( l ):
+                if sources.re_source_sep.match( l ):
                     break
                 source.append( l )
 
@@ -659,7 +657,7 @@ class  DocBlock:
         try:
             m = self.get_markup( tag_name )
             return m.fields[0].items[0].words
-        except:
+        except Exception:
             return []
 
     def  get_markup_words_all( self, tag_name ):
@@ -674,7 +672,7 @@ class  DocBlock:
                 words += item.words
                 words.append( "/empty/" )
             return words
-        except:
+        except Exception:
             return []
 
     def  get_markup_text( self, tag_name ):
@@ -685,7 +683,7 @@ class  DocBlock:
         try:
             m = self.get_markup( tag_name )
             return m.fields[0].items
-        except:
+        except Exception:
             return None
 
 # eof

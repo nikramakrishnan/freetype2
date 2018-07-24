@@ -12,25 +12,30 @@
 #  this file you indicate that you have read the license and
 #  understand and accept it fully.
 
-#
-# This library file contains definitions of classes needed to decompose C
-# source code files into a series of multi-line `blocks'.  There are two
-# kinds of blocks.
-#
-#   - Normal blocks, which contain source code or ordinary comments.
-#
-#   - Documentation blocks, which have restricted formatting, and whose text
-#     always start with a documentation markup tag like `<Function>',
-#     `<Type>', etc.
-#
-# The routines to process the content of documentation blocks are contained
-# in file `content.py'; the classes and methods found here only deal with
-# text parsing and basic documentation block extraction.
-#
+"""Utility for parsing source files.
 
+This library file contains definitions of classes needed to decompose C
+source code files into a series of multi-line 'blocks'.  There are two
+kinds of blocks.
 
-import fileinput, re
+  * Normal blocks, which contain source code or ordinary comments.
 
+  * Documentation blocks, which have restricted formatting, and whose text
+    always start with a documentation markup tag like `<Function>',
+    `<Type>', etc.
+
+The routines to process the content of documentation blocks are contained
+in file `content.py'; the classes and methods found here only deal with
+text parsing and basic documentation block extraction.
+"""
+
+from __future__ import print_function
+
+import fileinput
+import logging
+import re
+
+log = logging.getLogger( __name__ )
 
 ################################################################
 ##
@@ -45,12 +50,12 @@ import fileinput, re
 ##  Later on, paragraphs are converted to long lines, which simplifies the
 ##  regular expressions that act upon the text.
 ##
-class  SourceBlockFormat:
+class  SourceBlockFormat( object ):
 
-    def  __init__( self, id, start, column, end ):
+    def  __init__( self, iden, start, column, end ):
         """Create a block pattern, used to recognize special documentation
-           blocks."""
-        self.id     = id
+        blocks."""
+        self.id     = iden
         self.start  = re.compile( start, re.VERBOSE )
         self.column = re.compile( column, re.VERBOSE )
         self.end    = re.compile( end, re.VERBOSE )
@@ -179,7 +184,7 @@ urls = r'(?:https?|telnet|gopher|file|wais|ftp)'
 ltrs = r'\w'
 gunk = r'/#~:.?+=&%@!\-'
 punc = r'.:?\-'
-any  = "%(ltrs)s%(gunk)s%(punc)s" % { 'ltrs' : ltrs,
+any_sym  = "%(ltrs)s%(gunk)s%(punc)s" % { 'ltrs' : ltrs,
                                       'gunk' : gunk,
                                       'punc' : punc }
 url  = r"""
@@ -198,7 +203,7 @@ url  = r"""
            )
          )
         """ % {'urls' : urls,
-               'any'  : any,
+               'any'  : any_sym,
                'punc' : punc }
 
 re_url = re.compile( url, re.VERBOSE | re.MULTILINE )
@@ -258,7 +263,7 @@ re_source_keywords = re.compile( '''\\b ( typedef   |
 ##      other blocks (i.e., sources or ordinary comments with no starting
 ##      markup tag)
 ##
-class  SourceBlock:
+class  SourceBlock( object ):
 
     def  __init__( self, processor, filename, lineno, lines ):
         self.processor = processor
@@ -270,8 +275,6 @@ class  SourceBlock:
 
         if self.format == None:
             return
-
-        words = []
 
         # extract comment lines
         lines = []
@@ -302,10 +305,6 @@ class  SourceBlock:
             print( "---content end}}}" )
             return
 
-        fmt = ""
-        if self.format:
-            fmt = repr( self.format.id ) + " "
-
         for line in self.lines:
             print( line )
 
@@ -325,7 +324,7 @@ class  SourceBlock:
 ##    - Normal sources lines, including comments.
 ##
 ##
-class  SourceProcessor:
+class  SourceProcessor( object ):
 
     def  __init__( self ):
         """Initialize a source processor."""
@@ -341,10 +340,11 @@ class  SourceProcessor:
 
     def  parse_file( self, filename ):
         """Parse a C source file and add its blocks to the processor's
-           list."""
+        list."""
         self.reset()
 
         self.filename = filename
+        log.debug( "Parsing file %s.", filename )
 
         fileinput.close()
         self.format = None
@@ -380,7 +380,7 @@ class  SourceProcessor:
 
     def  process_normal_line( self, line ):
         """Process a normal line and check whether it is the start of a new
-           block."""
+        block."""
         for f in re_source_block_formats:
             if f.start.match( line ):
                 self.add_block_lines()

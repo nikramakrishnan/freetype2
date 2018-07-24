@@ -12,15 +12,27 @@
 #  this file you indicate that you have read the license and
 #  understand and accept it fully.
 
+"""Module to generate Mkdocs config.
+
+This module contains routines to generate the configuration file
+`mkdocs.yml` required by Mkdocs to build static HTML documentation
+from markdown.
+
+More information can be found at:
+
+<https://www.mkdocs.org/user-guide/configuration/>
+"""
+
 from __future__ import print_function
-import sys
+
+import datetime
+import logging
+
+import yaml
+
 import utils
 
-try:
-    import yaml
-except ImportError:
-    sys.stderr.write( "Error: Could not find module 'pyyaml'. Please run"
-                      + "'pip install -r requirements.txt' to install." )
+log = logging.getLogger( __name__ )
 
 # Config file name
 config_filename = "mkdocs.yml"
@@ -40,6 +52,17 @@ theme_conf             = {}
 theme_conf['name']     = "material"
 theme_conf['logo']     = "images/favico.ico"
 theme_conf['language'] = "en"
+theme_conf['favicon']  = "images/favico.ico"
+theme_conf['palette']  = {}
+theme_conf['font']     = {}
+
+# Theme palette
+theme_conf['palette']['primary'] = "green"
+theme_conf['palette']['accent']  = "green"
+
+# Theme fonts
+theme_conf['font']['text'] = "Noto Serif"
+theme_conf['font']['code'] = "Roboto Mono"
 
 # Markdown extensions
 md_extensions = '''\
@@ -66,58 +89,61 @@ extra_javascript:
 '''
 
 # Other config
+year     = datetime.datetime.utcnow().year
+var_dict = { 'year': year }
 other_config = '''\
-copyright: Copyright 2018 \
-<a href = "http://git.savannah.gnu.org/cgit/freetype/freetype2.git/tree/docs/LICENSE.TXT">\
+copyright: Copyright {year} \
+<a href = "https://www.freetype.org/license.html">\
 The FreeType Project</a>.
 '''
+other_config = other_config.format( **var_dict )
 
 def add_config( yml_string, config_name ):
     config = None
     try:
         config = yaml.safe_load( yml_string )
-    except:
-        sys.stderr.write( "WARNING: Malformed '"+ config_name +"' config, ignoring.\n" )
+    except yaml.scanner.ScannerError:
+        log.warn( "Malformed '%s' config, ignoring.", config_name )
     return config
 
-# Parse all configurations and save as Python objects
-md_extensions = add_config( md_extensions, "markdown_extensions" )
-yml_extra     = add_config( extra_scripts, "extra scripts" )
-yml_other     = add_config( other_config, "other" )
+def build_extras():
+    # Parse all configurations and save as Python objects
+    global md_extensions, yml_extra, yml_other
+    md_extensions = add_config( md_extensions, "markdown_extensions" )
+    yml_extra     = add_config( extra_scripts, "extra scripts" )
+    yml_other     = add_config( other_config, "other" )
 
 
-class Chapter:
+class  Chapter( object ):
     def __init__( self, title ):
         self.title = title
         self.pages = []
 
     def add_page( self, section_title, filename ):
+        """Add a page to the chapter."""
         cur_page = {}
         cur_page[section_title] = filename
         self.pages.append( cur_page )
 
     def get_pages( self ):
+        """Get dict of pages in the chapter."""
         conf = {}
         conf[self.title] = self.pages
         return conf
 
 
-class SiteConfig:
-    '''Site configuration generator class
+class  SiteConfig( object ):
+    """Site configuration generator class.
 
-    This class is used to generate site configuration based on
-    supplied and default values.
-    '''
+    This class is used to generate site configuration based on supplied
+    and default values.
+    """
     def __init__( self ):
         self.site_config   = {}
         self.pages         = []
         self.chapter       = None
         self.sections      = []
         self.md_extensions = []
-
-        global site_name, site_description, site_author
-        global docs_dir, site_dir
-        global theme_conf
 
         # Set configurations
         self.site_name   = site_name
@@ -129,13 +155,12 @@ class SiteConfig:
         self.use_dir_url = use_dir_url
 
     def set_site_info( self, name, description = None, author = None ):
-        '''Set the basic site information'''
+        """Set the basic site information."""
         if name:
             self.site_name = name
         else:
             # Site name is required, throw warning and revert to default
-            sys.stderr.write( "WARNING: Site name not specified,"
-                              + " reverting to default.\n" )
+            log.warn( "Site name not specified, reverting to default." )
 
         if description:
             self.site_desc = description
@@ -143,41 +168,40 @@ class SiteConfig:
             self.site_author = author
 
     def add_single_page( self, section_title, filename ):
-        '''Add a single page to the list of pages'''
+        """Add a single page to the list of pages."""
         cur_page = {}
         cur_page[section_title] = filename
         self.pages.append( cur_page )
 
     def add_chapter_page( self, section_title, filename ):
-        '''Add a page to a chapter.
+        """Add a page to a chapter.
 
-        Chapter must be set first using `start_chapter()`
-        If not set, `add_single_page()` will be called internally.
-        '''
+        Chapter must be set first using `start_chapter()` If not set,
+        `add_single_page()` will be called internally.
+        """
         if self.chapter:
             self.chapter.add_page( section_title, filename )
         else:
-            sys.stderr.write( "WARNING: Section '"+ section_title
-                              + "' added without starting chapter.\n" )
+            log.warn( "Section '%s' added without starting chapter.",
+                      section_title )
             self.add_single_page( section_title, filename )
 
     def start_chapter( self, chap ):
-        '''Start a chapter'''
+        """Start a chapter."""
         if self.chapter:
-            chap_pages = self.chapter.get_pages()
-            self.pages.append( chap_pages )
+            self.end_chapter()
 
         self.chapter = Chapter( chap )
 
     def end_chapter( self ):
-        '''Explicitly end a chapter'''
+        """Explicitly end a chapter."""
         if self.chapter:
             chap_pages = self.chapter.get_pages()
             self.pages.append( chap_pages )
             self.chapter = None
 
     def build_site_config( self ):
-        '''Add basic Project information to config'''
+        """Add basic Project information to config."""
         self.site_config['site_name'] = self.site_name
         if site_description:
             self.site_config['site_description'] = self.site_desc
@@ -206,14 +230,14 @@ class SiteConfig:
             self.site_config.update( data )
 
     def write_config( self, name ):
-        '''Write all values in site_config to output stream'''
+        """Write all values in site_config to output stream."""
         if self.site_config != {}:
             print( "# " + name )
             print( yaml.dump( self.site_config, default_flow_style=False ) )
             self.site_config.clear()
 
     def write_config_order( self, name, order ):
-        '''Write all values in site_config to output stream in order'''
+        """Write all values in site_config to output stream in order."""
         if self.site_config != {}:
             print( "# " + name )
             for key in order:
@@ -232,7 +256,7 @@ class SiteConfig:
             self.site_config.clear()
 
     def build_config( self ):
-        '''Build the YAML configuration'''
+        """Build the YAML configuration."""
         # End chapter if started
         self.end_chapter()
 
@@ -251,6 +275,9 @@ class SiteConfig:
         # Build pages
         self.build_pages()
         self.write_config( "Pages" )
+
+        # Build extra scripts
+        build_extras()
 
         # Add extra CSS and Javascript
         self.populate_config( yml_extra )

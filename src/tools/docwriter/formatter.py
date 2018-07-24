@@ -12,27 +12,28 @@
 #  this file you indicate that you have read the license and
 #  understand and accept it fully.
 
-#
-# This is the base Formatter class.  Its purpose is to convert a content
-# processor's data into specific documents (i.e., table of contents, global
-# index, and individual API reference indices).
-#
-# You need to sub-class it to output anything sensible.  For example, the
-# file `tohtml.py' contains the definition of the `HtmlFormatter' sub-class
-# to output HTML.
-#
+"""Base formatter class.
 
+The purpose of this module is to convert a content processor's data into
+specific documents (i.e., table of contents, global index, and individual
+API reference indices).
 
-from sources import *
-from content import *
-from utils   import *
+You need to sub-class it to output anything sensible.  For example, the
+module `tomarkdown` contains the definition of the `MdFormatter' sub-class
+to output Markdown.
+"""
 
+import logging
+
+import utils
+
+log = logging.getLogger( __name__ )
 
 ################################################################
 ##
 ##  FORMATTER CLASS
 ##
-class  Formatter:
+class  Formatter( object ):
 
     def  __init__( self, processor ):
         self.processor   = processor
@@ -54,7 +55,7 @@ class  Formatter:
                             self.add_identifier( field.name, block )
 
         self.block_index = self.identifiers.keys()
-        self.block_index = sorted( self.block_index, key = index_key )
+        self.block_index = sorted( self.block_index, key = str.lower )
 
         # also add section names to dictionary (without making them appear
         # in the index)
@@ -64,12 +65,12 @@ class  Formatter:
     def  add_identifier( self, name, block ):
         if name in self.identifiers:
             # duplicate name!
-            sys.stderr.write( "WARNING: duplicate definition for"
-                              + " '" + name + "' "
-                              + "in " + block.location() + ", "
-                              + "previous definition in "
-                              + self.identifiers[name].location()
-                              + "\n" )
+            log.warn( "Duplicate definition for"
+                      " '%s' in %s, "
+                      "previous definition in %s",
+                      name,
+                      block.location(),
+                      self.identifiers[name].location() )
         else:
             self.identifiers[name] = block
 
@@ -100,8 +101,9 @@ class  Formatter:
     def  toc_dump( self, toc_filename = None, index_filename = None ):
         output = None
         if toc_filename:
-            output = open_output( toc_filename )
+            output = utils.open_output( toc_filename )
 
+        log.debug( "Building table of contents in %s.", toc_filename )
         self.toc_enter()
 
         for chap in self.processor.chapters:
@@ -119,7 +121,7 @@ class  Formatter:
         self.toc_exit()
 
         if output:
-            close_output( output )
+            utils.close_output( output )
 
     #
     # formatting the index
@@ -139,8 +141,9 @@ class  Formatter:
     def  index_dump( self, index_filename = None ):
         output = None
         if index_filename:
-            output = open_output( index_filename )
+            output = utils.open_output( index_filename )
 
+        log.debug("Building index in %s.", index_filename )
         self.index_enter()
 
         for name in self.block_index:
@@ -150,7 +153,7 @@ class  Formatter:
         self.index_exit()
 
         if output:
-            close_output( output )
+            utils.close_output( output )
 
     #
     # formatting a section
@@ -161,7 +164,7 @@ class  Formatter:
     def  block_enter( self, block ):
         pass
 
-    def  markup_enter( self, markup, block = None ):
+    def  markup_enter( self, markup, block ):
         pass
 
     def  field_enter( self, field, markup = None, block = None ):
@@ -170,7 +173,7 @@ class  Formatter:
     def  field_exit( self, field, markup = None, block = None ):
         pass
 
-    def  markup_exit( self, markup, block = None ):
+    def  markup_exit( self, markup, block ):
         pass
 
     def  block_exit( self, block ):
@@ -181,8 +184,9 @@ class  Formatter:
 
     def  section_dump( self, section, section_filename = None ):
         output = None
+        log.debug( "Building page %s.", section_filename )
         if section_filename:
-            output = open_output( section_filename )
+            output = utils.open_output( section_filename )
 
         self.section_enter( section )
 
@@ -197,11 +201,11 @@ class  Formatter:
                         for field in markup.fields:
                             if field.name == name:
                                 skip_entry = 1
-            except:
+            except Exception:
                 skip_entry = 1   # this happens e.g. for `/empty/' entries
 
             if skip_entry:
-              continue
+                continue
 
             self.block_enter( block )
 
@@ -219,9 +223,10 @@ class  Formatter:
         self.section_exit( section )
 
         if output:
-            close_output( output )
+            utils.close_output( output )
 
     def  section_dump_all( self ):
+        log.debug( "Building markdown pages for sections." )
         for section in self.sections:
             self.section_dump( section )
 
